@@ -30,6 +30,8 @@ fn main() {
             loop {
                 let msg = websocket.read_message().unwrap();
                 if msg.is_binary() || msg.is_text() {
+                    let new_msg = format!("Got message: {}", msg);
+                    println!("{}", new_msg);
                     websocket.write_message(msg).unwrap();
                 }
             }

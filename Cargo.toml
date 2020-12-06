@@ -37,3 +37,5 @@ version = "0.2.3"
 [dev-dependencies]
 env_logger = "0.8.1"
 net2 = "0.2.33"
+webpki = "0.21.4"
+rustls = { git = "https://github.com/Devolutions/rustls.git", branch = "v0.18.1-patched", features = [ "dangerous_configuration" ] }
