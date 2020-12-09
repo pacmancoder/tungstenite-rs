@@ -1,11 +1,16 @@
 use tungstenite::{connect, Message};
 use url::Url;
+use std::env;
 
 fn main() {
     env_logger::init();
 
+    let listener_addr = env::var("WS_PROXY_ADDR").unwrap_or("127.0.0.1:8999".into());
+
+    println!("Connecting to proxy at {} (env: WS_PROXY_ADDR)", listener_addr);
+
     let (mut socket, response) =
-        connect(Url::parse("ws://localhost:1613").unwrap()).expect("Can't connect");
+        connect(Url::parse(&format!("ws://{}", listener_addr)).unwrap()).expect("Can't connect");
 
     println!("Connected to the server");
     println!("Response HTTP code: {}", response.status());
@@ -19,5 +24,4 @@ fn main() {
         let msg = socket.read_message().expect("Error reading message");
         println!("Received: {}", msg);
     }
-    // socket.close(None);
 }

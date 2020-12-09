@@ -1,4 +1,4 @@
-use std::{net::TcpListener, thread::spawn};
+use std::{net::TcpListener, thread::spawn, env};
 
 use tungstenite::{
     accept_hdr,
@@ -7,25 +7,16 @@ use tungstenite::{
 
 fn main() {
     env_logger::init();
-    let server = TcpListener::bind("127.0.0.1:3012").unwrap();
+
+    let listener_addr = env::var("WS_LISTENER_ADDR").unwrap_or("0.0.0.0:3012".into());
+    println!("Listening at {} (env: WS_LISTENER_ADDR)", listener_addr);
+
+    let server = TcpListener::bind(&listener_addr).unwrap();
     for stream in server.incoming() {
         spawn(move || {
-            let callback = |req: &Request, mut response: Response| {
-                println!("Received a new ws handshake");
-                println!("The request's path is: {}", req.uri().path());
-                println!("The request's headers are:");
-                for (ref header, _value) in req.headers() {
-                    println!("* {}", header);
-                }
+            let mut websocket = tungstenite::accept(stream.unwrap()).expect("handshake failed");
 
-                // Let's add an additional header to our response to the client.
-                let headers = response.headers_mut();
-                headers.append("MyCustomHeader", ":)".parse().unwrap());
-                headers.append("SOME_TUNGSTENITE_HEADER", "header_value".parse().unwrap());
-
-                Ok(response)
-            };
-            let mut websocket = accept_hdr(stream.unwrap(), callback).unwrap();
+            println!("Handshake completed");
 
             loop {
                 let msg = websocket.read_message().unwrap();

@@ -1,4 +1,4 @@
-use std::{net::TcpListener, thread::spawn, fs::File, io::BufReader, io, net::SocketAddr, net::TcpStream};
+use std::{net::TcpListener, thread::spawn, fs::File, io::BufReader, io, net::SocketAddr, net::TcpStream, env};
 use rustls::{
     ServerConfig,
 };
@@ -11,16 +11,22 @@ use std::sync::Arc;
 fn main() {
     env_logger::init();
 
+    let listener_addr = env::var("WS_LISTENER_ADDR").unwrap_or("0.0.0.0:3012".into());
+    println!("Listening at {} (env: WS_LISTENER_ADDR)", listener_addr);
+
+    let cert_path = env::var("WS_LISTENER_PUBLIC_CERT_PATH").unwrap_or("publicCert.pem".into());
+    let key_path = env::var("WS_LISTENER_CERT_KEY_PATH").unwrap_or("private.pem".into());
+
+    println!("Using public cert at {} (env: WS_LISTENER_PUBLIC_CERT_PATH)", cert_path);
+    println!("Using cert key at {} (env: WS_LISTENER_CERT_KEY_PATH)", key_path);
 
     let client_no_auth = rustls::NoClientAuth::new();
     let mut server_config = rustls::ServerConfig::new(client_no_auth);
-    let mut cert_file = File::open(r"C:\core\work\devolutions-gateway\src\cert\publicCert.pem").expect("Failed to open cert");
+    let mut cert_file = File::open(cert_path).expect("Failed to open cert");
     let mut cert_reader = BufReader::new(cert_file);
     let certs = rustls::internal::pemfile::certs(&mut cert_reader).expect("Failed to parse certificate");
 
-    println!("Certs: {}", certs.len());
-
-    let keyfile = File::open(r"C:\core\work\devolutions-gateway\src\cert\private.pem").unwrap_or_else(|_| panic!("cannot open private key file"));
+    let keyfile = File::open(key_path).unwrap_or_else(|_| panic!("cannot open private key file"));
     let pri_key = rustls::internal::pemfile::pkcs8_private_keys(&mut BufReader::new(keyfile)).map_err(|_| {
         io::Error::new(
             io::ErrorKind::InvalidData,
@@ -36,12 +42,10 @@ fn main() {
 
     let server_config_ref = Arc::new(server_config);
 
-    let mut socket = TcpListener::bind("0.0.0.0:8999".parse::<SocketAddr>().unwrap())
+    let mut socket = TcpListener::bind(listener_addr.parse::<SocketAddr>().unwrap())
         .expect("can't bind port");
 
     println!("waiting for connection...");
-
-    // let tls_stream = rustls::Stream::new(&mut session, &mut stream);
 
     for mut stream in socket.incoming() {
         let server_config_ref = server_config_ref.clone();
@@ -54,24 +58,6 @@ fn main() {
             println!("making websocket handshake...");
             let mut websocket = tungstenite::accept(tls_stream).expect("handshake failed");
             println!("handshaked!");
-            /*
-            let callback = |req: &Request, mut response: Response| {
-                println!("Received a new ws handshake");
-                println!("The request's path is: {}", req.uri().path());
-                println!("The request's headers are:");
-                for (ref header, _value) in req.headers() {
-                    println!("* {}", header);
-                }
-
-                // Let's add an additional header to our response to the client.
-                let headers = response.headers_mut();
-                headers.append("MyCustomHeader", ":)".parse().unwrap());
-                headers.append("SOME_TUNGSTENITE_HEADER", "header_value".parse().unwrap());
-
-                Ok(response)
-            };
-            let mut websocket = accept_hdr(stream.unwrap(), callback).unwrap();
-                */
             loop {
                 let msg = websocket.read_message().unwrap();
                 if msg.is_binary() || msg.is_text() {
